@@ -1,0 +1,20 @@
+[project]
+name = "behaviour-labeling"
+version = "0.1.0"
+description = ""
+authors = [{ name = "Brandon Lotero", email = "blotero@gmail.com" }]
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "opencv-python (>=4.11.0.86,<5.0.0.0)",
+    "pillow (>=11.1.0,<12.0.0)",
+    "opencv-stubs (>=0.0.11,<0.0.12)",
+]
+
+[tool.poetry]
+package-mode = false
+
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
