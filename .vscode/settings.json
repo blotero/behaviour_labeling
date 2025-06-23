@@ -1,11 +1,12 @@
 {
   "[python]": {
-    "editor.defaultFormatter": "charliermarsh.ruff",
     "editor.codeActionsOnSave": {
       "source.fixAll": "explicit",
       "source.organizeImports": "explicit"
-    }
-  },
-  "editor.formatOnSave": true
-  // "pylint.enabled": false
+    },
+    "editor.rulers": [80],
+    "editor.tabSize": 4,
+    "editor.defaultFormatter": "charliermarsh.ruff",
+    "editor.formatOnSave": true
+  }
 }

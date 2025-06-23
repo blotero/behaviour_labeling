@@ -6,6 +6,8 @@ from typing import Literal, NotRequired, TypedDict
 import cv2
 from cv2.typing import MatLike
 
+MAX_QUEUE_SIZE = 5
+
 
 class FrameQueueElement(TypedDict):
     data: NotRequired[MatLike]
@@ -73,6 +75,9 @@ class FrameProcessor(threading.Thread):
                 elif cmd["type"] == "seek":
                     position = cmd["position"]
                     self.cap.set(cv2.CAP_PROP_POS_MSEC, position * 1000)
+                    self.command_queue.put({"type": "play"})
+                    time.sleep(0.01)
+                    self.command_queue.put({"type": "pause"})
                 elif cmd["type"] == "speed":
                     self.playback_speed = cmd["value"]
             except queue.Empty:
@@ -90,7 +95,9 @@ class FrameProcessor(threading.Thread):
 
                     if ret:
                         # Get current position
-                        self.current_position = self.cap.get(cv2.CAP_PROP_POS_MSEC) / 1000
+                        self.current_position = (
+                            self.cap.get(cv2.CAP_PROP_POS_MSEC) / 1000
+                        )
 
                         # Resize and convert the frame
                         frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
@@ -98,10 +105,14 @@ class FrameProcessor(threading.Thread):
 
                         # Put the frame in the queue
                         if (
-                            self.frame_queue.qsize() < 2
+                            self.frame_queue.qsize() < MAX_QUEUE_SIZE
                         ):  # Limit queue size to prevent memory issues
                             self.frame_queue.put(
-                                {"type": "frame", "data": frame, "position": self.current_position}
+                                {
+                                    "type": "frame",
+                                    "data": frame,
+                                    "position": self.current_position,
+                                }
                             )
 
                         last_frame_time = current_time
@@ -112,7 +123,7 @@ class FrameProcessor(threading.Thread):
                         self.frame_queue.put({"type": "eof"})
 
             # Small sleep to prevent CPU hogging
-            time.sleep(0.001)
+            time.sleep(0.0001)
 
         # Clean up
         if self.cap:
