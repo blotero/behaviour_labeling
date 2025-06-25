@@ -101,6 +101,24 @@ class VideoLabelingApp:
         self.behavior_records: list[BehaviourRecord] = []
         self.behavior_buttons: dict[str, ttk.Button] = {}
 
+        # Zoom-related attributes
+        self.zoom_level = 1.0
+        self.min_zoom = 0.25
+        self.max_zoom = 4.0
+        self.zoom_step = 0.25
+        self.original_image: Image.Image | None = None
+
+        # Video dimensions
+        self.original_video_width = 0
+        self.original_video_height = 0
+        self.display_width = VIDEO_WIDTH
+        self.display_height = VIDEO_HEIGHT
+
+        # Variables for drag panning
+        self.drag_start_x = 0
+        self.drag_start_y = 0
+        self.is_dragging = False
+
         # Threading related attributes
         self.frame_processor: FrameProcessor | None = None
         self.frame_queue: queue.Queue[FrameQueueElement] = queue.Queue(
@@ -141,10 +159,49 @@ class VideoLabelingApp:
         )
         self.video_label.pack()
 
+        # Create a frame to hold the canvas and scrollbars
+        self.canvas_frame = ttk.Frame(self.top_sub_frame)
+        self.canvas_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+
+        # Create canvas with scrollbars
         self.canvas = tk.Canvas(
-            self.top_sub_frame, width=VIDEO_WIDTH, height=VIDEO_HEIGHT
+            self.canvas_frame,
+            width=VIDEO_WIDTH,
+            height=VIDEO_HEIGHT,
+            scrollregion=(0, 0, VIDEO_WIDTH, VIDEO_HEIGHT),
         )
-        self.canvas.pack(side=tk.LEFT)
+
+        # Create scrollbars
+        self.h_scrollbar = ttk.Scrollbar(
+            self.canvas_frame, orient=tk.HORIZONTAL, command=self.canvas.xview
+        )
+        self.v_scrollbar = ttk.Scrollbar(
+            self.canvas_frame, orient=tk.VERTICAL, command=self.canvas.yview
+        )
+
+        # Configure canvas to work with scrollbars
+        self.canvas.configure(
+            xscrollcommand=self.h_scrollbar.set,
+            yscrollcommand=self.v_scrollbar.set,
+        )
+
+        # Pack canvas and scrollbars
+        self.canvas.grid(row=0, column=0, sticky="nsew")
+        self.h_scrollbar.grid(row=1, column=0, sticky="ew")
+        self.v_scrollbar.grid(row=0, column=1, sticky="ns")
+
+        # Configure grid weights
+        self.canvas_frame.grid_rowconfigure(0, weight=1)
+        self.canvas_frame.grid_columnconfigure(0, weight=1)
+
+        # Bind mouse wheel to canvas for zooming
+        self.canvas.bind("<Control-MouseWheel>", self.on_mouse_wheel_zoom)
+        self.canvas.bind("<MouseWheel>", self.on_mouse_wheel_scroll)
+
+        # Bind mouse drag events for panning
+        self.canvas.bind("<Button-1>", self.on_canvas_click)
+        self.canvas.bind("<B1-Motion>", self.on_canvas_drag)
+        self.canvas.bind("<ButtonRelease-1>", self.on_canvas_release)
 
         self.time_frame = ttk.Frame(self.top_frame)
         self.time_frame.pack(fill=tk.X, padx=10)
@@ -193,6 +250,31 @@ class VideoLabelingApp:
         )
         self.speed_menu.pack(side=tk.LEFT)
         self.speed_menu.bind("<<ComboboxSelected>>", self.change_speed)
+
+        # Add zoom controls
+        ttk.Separator(self.controls_frame, orient="vertical").pack(
+            side=tk.LEFT, fill=tk.Y, padx=5
+        )
+
+        self.zoom_out_button = ttk.Button(
+            self.controls_frame, text="🔍−", command=self.zoom_out
+        )
+        self.zoom_out_button.pack(side=tk.LEFT, padx=2)
+
+        self.zoom_level_label = ttk.Label(
+            self.controls_frame, text="100%", width=5
+        )
+        self.zoom_level_label.pack(side=tk.LEFT, padx=2)
+
+        self.zoom_in_button = ttk.Button(
+            self.controls_frame, text="🔍+", command=self.zoom_in
+        )
+        self.zoom_in_button.pack(side=tk.LEFT, padx=2)
+
+        self.zoom_reset_button = ttk.Button(
+            self.controls_frame, text="🔍⌂", command=self.zoom_reset
+        )
+        self.zoom_reset_button.pack(side=tk.LEFT, padx=2)
 
         # Create secondary window for behavior controls and records
         self.secondary_window = tk.Toplevel(self.root)
@@ -387,12 +469,56 @@ class VideoLabelingApp:
                     # Update the frame on the canvas
                     frame = message["data"]
                     self.current_frame = frame
-                    self.photo_image = ImageTk.PhotoImage(
-                        Image.fromarray(frame)
-                    )
+
+                    # Convert to PIL Image (this is now full resolution)
+                    pil_image = Image.fromarray(frame)
+                    self.original_image = pil_image
+
+                    # Calculate the display size based on zoom level
+                    # At zoom level 1.0, we want to fit the video to display size
+                    # At higher zoom levels, we want to show more detail from original
+
+                    if self.zoom_level <= 1.0:
+                        # When zoomed out or at 1.0, scale to fit display area
+                        scale_factor = (
+                            min(
+                                self.display_width / pil_image.width,
+                                self.display_height / pil_image.height,
+                            )
+                            * self.zoom_level
+                        )
+                    else:
+                        # When zoomed in, calculate scale to show original detail
+                        # Base scale to fit display, then multiply by zoom
+                        base_scale = min(
+                            self.display_width / pil_image.width,
+                            self.display_height / pil_image.height,
+                        )
+                        scale_factor = base_scale * self.zoom_level
+
+                    # Calculate final dimensions
+                    final_width = int(pil_image.width * scale_factor)
+                    final_height = int(pil_image.height * scale_factor)
+
+                    # Resize the image
+                    if scale_factor != 1.0:
+                        pil_image = pil_image.resize(
+                            (final_width, final_height),
+                            Image.Resampling.LANCZOS,
+                        )
+
+                    # Convert back to PhotoImage
+                    self.photo_image = ImageTk.PhotoImage(pil_image)
+
+                    # Update canvas
                     self.canvas.delete("all")
                     self.canvas.create_image(
                         0, 0, anchor=tk.NW, image=self.photo_image
+                    )
+
+                    # Update scroll region
+                    self.canvas.configure(
+                        scrollregion=(0, 0, pil_image.width, pil_image.height)
                     )
 
                     # Update the time display and slider
@@ -409,6 +535,15 @@ class VideoLabelingApp:
                     self.total_time_label.config(
                         text=format_time(self.video_duration)
                     )
+
+                    # Store original video dimensions
+                    if (
+                        "original_width" in message
+                        and "original_height" in message
+                    ):
+                        self.original_video_width = message["original_width"]
+                        self.original_video_height = message["original_height"]
+                        self.update_video_label()
 
                 elif message["type"] == "eof":
                     # Reached end of file, could handle specially if needed
@@ -690,3 +825,135 @@ class VideoLabelingApp:
         if 0 <= record_index < len(self.behavior_records):
             del self.behavior_records[record_index]
             self.update_records_display()
+
+    def on_mouse_wheel_zoom(self, event: Any) -> None:
+        """Handle Ctrl+MouseWheel for zooming."""
+        if event.delta > 0:
+            self.zoom_in()
+        else:
+            self.zoom_out()
+
+    def on_mouse_wheel_scroll(self, event: Any) -> None:
+        """Handle MouseWheel for scrolling."""
+        # Scroll vertically by default
+        self.canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
+
+    def zoom_out(self) -> None:
+        self.zoom_level = max(self.min_zoom, self.zoom_level - self.zoom_step)
+        self.update_zoom_level()
+
+    def zoom_in(self) -> None:
+        self.zoom_level = min(self.max_zoom, self.zoom_level + self.zoom_step)
+        self.update_zoom_level()
+
+    def zoom_reset(self) -> None:
+        self.zoom_level = 1.0
+        self.update_zoom_level()
+
+    def update_zoom_level(self) -> None:
+        """Update zoom level display and refresh current frame."""
+        self.zoom_level_label.config(text=f"{int(self.zoom_level * 100)}%")
+
+        # Refresh current frame with new zoom level
+        if self.original_image is not None:
+            pil_image = self.original_image.copy()
+
+            # Use the same scaling logic as check_frame_queue
+            if self.zoom_level <= 1.0:
+                # When zoomed out or at 1.0, scale to fit display area
+                scale_factor = (
+                    min(
+                        self.display_width / pil_image.width,
+                        self.display_height / pil_image.height,
+                    )
+                    * self.zoom_level
+                )
+            else:
+                # When zoomed in, calculate scale to show original detail
+                # Base scale to fit display, then multiply by zoom
+                base_scale = min(
+                    self.display_width / pil_image.width,
+                    self.display_height / pil_image.height,
+                )
+                scale_factor = base_scale * self.zoom_level
+
+            # Calculate final dimensions
+            final_width = int(pil_image.width * scale_factor)
+            final_height = int(pil_image.height * scale_factor)
+
+            # Resize the image
+            if scale_factor != 1.0:
+                pil_image = pil_image.resize(
+                    (final_width, final_height), Image.Resampling.LANCZOS
+                )
+
+            # Convert back to PhotoImage
+            self.photo_image = ImageTk.PhotoImage(pil_image)
+
+            # Update canvas
+            self.canvas.delete("all")
+            self.canvas.create_image(0, 0, anchor=tk.NW, image=self.photo_image)
+
+            # Update scroll region
+            self.canvas.configure(
+                scrollregion=(0, 0, pil_image.width, pil_image.height)
+            )
+
+    def on_canvas_click(self, event: Any) -> None:
+        """Start dragging operation."""
+        self.drag_start_x = self.canvas.canvasx(event.x)
+        self.drag_start_y = self.canvas.canvasy(event.y)
+        self.is_dragging = True
+        # Change cursor to indicate dragging mode
+        self.canvas.config(cursor="fleur")
+
+    def on_canvas_drag(self, event: Any) -> None:
+        """Handle canvas dragging for panning."""
+        if self.is_dragging and self.zoom_level > 1.0:
+            current_x = self.canvas.canvasx(event.x)
+            current_y = self.canvas.canvasy(event.y)
+
+            dx = -(current_x - self.drag_start_x)
+            dy = -(current_y - self.drag_start_y)
+
+            # Get current scroll position
+            scroll_x = self.canvas.canvasx(0)
+            scroll_y = self.canvas.canvasy(0)
+
+            # Calculate new scroll position
+            new_x = scroll_x + dx
+            new_y = scroll_y + dy
+
+            # Get scroll region bounds
+            scroll_region = self.canvas.cget("scrollregion").split()
+            if len(scroll_region) == 4:
+                min_x, min_y, max_x, max_y = map(float, scroll_region)
+                canvas_width = self.canvas.winfo_width()
+                canvas_height = self.canvas.winfo_height()
+
+                # Constrain scrolling within bounds
+                new_x = max(min_x, min(new_x, max_x - canvas_width))
+                new_y = max(min_y, min(new_y, max_y - canvas_height))
+
+                # Apply scrolling
+                self.canvas.xview_moveto(new_x / max_x if max_x > 0 else 0)
+                self.canvas.yview_moveto(new_y / max_y if max_y > 0 else 0)
+
+            self.drag_start_x = current_x
+            self.drag_start_y = current_y
+
+    def on_canvas_release(self, event: Any) -> None:
+        """End dragging operation."""
+        self.is_dragging = False
+        # Reset cursor
+        self.canvas.config(cursor="")
+
+    def update_video_label(self) -> None:
+        if self.video_files and self.current_video_index < len(
+            self.video_files
+        ):
+            composed_text = (
+                f"{self.video_files[self.current_video_index]}"
+                f" ({self.original_video_width}x{self.original_video_height})"
+            )
+            self.video_label.config(text=composed_text)

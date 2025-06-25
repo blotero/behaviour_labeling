@@ -14,6 +14,8 @@ class FrameQueueElement(TypedDict):
     duration: NotRequired[float]
     fps: NotRequired[float]
     position: NotRequired[float]
+    original_width: NotRequired[int]
+    original_height: NotRequired[int]
     type: Literal["metadata", "frame", "eof"]
 
 
@@ -51,12 +53,18 @@ class FrameProcessor(threading.Thread):
         self.fps = self.cap.get(cv2.CAP_PROP_FPS)
         self.total_frames = int(self.cap.get(cv2.CAP_PROP_FRAME_COUNT))
 
+        # Get original video dimensions
+        original_width = int(self.cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+        original_height = int(self.cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+
         # Send initial metadata to the main thread
         self.frame_queue.put(
             {
                 "type": "metadata",
                 "duration": self.total_frames / self.fps if self.fps > 0 else 0,
                 "fps": self.fps,
+                "original_width": original_width,
+                "original_height": original_height,
             }
         )
 
@@ -99,9 +107,9 @@ class FrameProcessor(threading.Thread):
                             self.cap.get(cv2.CAP_PROP_POS_MSEC) / 1000
                         )
 
-                        # Resize and convert the frame
+                        # Convert color space but keep original resolution
                         frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-                        frame = cv2.resize(frame, (self.width, self.height))
+                        # Remove the resize operation - send full resolution frame
 
                         # Put the frame in the queue
                         if (
