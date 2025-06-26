@@ -14,8 +14,9 @@ from .frame_processor import (
     FrameProcessor,
     FrameQueueElement,
 )
-from .types import BehaviourRecord, GroupType, RecordType, Role, Sex
-from .utils import format_time, save_as_csv
+from .record import BehaviorRecord, save_as_csv
+from .types import GroupType, RecordType, Role, Sex
+from .utils import format_time
 
 VIDEO_WIDTH = 1080
 VIDEO_HEIGHT = 720
@@ -98,7 +99,7 @@ class VideoLabelingApp:
         self.behavior_start_time: float | None = None
         self.video_duration = 0.0
         self.video_position = tk.DoubleVar()
-        self.behavior_records: list[BehaviourRecord] = []
+        self.behavior_records: list[BehaviorRecord] = []
         self.behavior_buttons: dict[str, ttk.Button] = {}
 
         # Zoom-related attributes
@@ -375,6 +376,27 @@ class VideoLabelingApp:
             row=1, column=3, sticky=tk.EW, padx=(0, 10), pady=2
         )
 
+        # Group size spinner - Row 1
+        self.group_size_var = tk.StringVar()
+        self.group_size_label = ttk.Label(
+            self.secondary_controls_frame, text="Tamaño grupal: "
+        )
+        self.group_size_label.grid(
+            row=1, column=4, sticky=tk.W, padx=(0, 5), pady=2
+        )
+
+        self.group_size_spinner = ttk.Spinbox(
+            self.secondary_controls_frame,
+            textvariable=self.group_size_var,
+            from_=1,
+            to=100,
+            width=10,
+            state="normal",
+        )
+        self.group_size_spinner.grid(
+            row=1, column=5, sticky=tk.EW, padx=(0, 10), pady=2
+        )
+
         # Observations text box - Row 2 (spans multiple columns)
         self.observations_label = ttk.Label(
             self.secondary_controls_frame, text="Observaciones: "
@@ -385,7 +407,7 @@ class VideoLabelingApp:
 
         self.observations_entry = ttk.Entry(self.secondary_controls_frame)
         self.observations_entry.grid(
-            row=2, column=1, columnspan=3, sticky=tk.EW, padx=(0, 10), pady=2
+            row=2, column=1, columnspan=5, sticky=tk.EW, padx=(0, 10), pady=2
         )
 
         # State feedback label - Row 3
@@ -396,7 +418,7 @@ class VideoLabelingApp:
             foreground="gray",
         )
         self.state_feedback_label.grid(
-            row=3, column=0, columnspan=4, sticky=tk.W, padx=(0, 10), pady=5
+            row=3, column=0, columnspan=6, sticky=tk.W, padx=(0, 10), pady=5
         )
 
         # Save button - Row 2
@@ -406,7 +428,7 @@ class VideoLabelingApp:
             command=self.save_behavior_records,
         )
         self.save_button.grid(
-            row=2, column=4, sticky=tk.E, padx=(10, 0), pady=2
+            row=2, column=6, sticky=tk.E, padx=(10, 0), pady=2
         )
 
         # Create a frame for records in secondary window
@@ -675,10 +697,20 @@ class VideoLabelingApp:
         current_sex = self.sex_var.get() if self.sex_var.get() else "indefinido"
         current_observations = self.observations_entry.get()
 
+        # Get group size value, convert to int if not empty, otherwise None
+        group_size_str = self.group_size_var.get()
+        current_group_size = None
+        if group_size_str.strip():
+            try:
+                current_group_size = int(group_size_str)
+            except ValueError:
+                # If conversion fails, keep as None
+                pass
+
         match record_type:
             case "EVENT":
                 self.behavior_records.append(
-                    BehaviourRecord(
+                    BehaviorRecord(
                         session=1,
                         role=cast(Role, current_role),
                         behaviour=behavior,
@@ -692,6 +724,7 @@ class VideoLabelingApp:
                         observations=current_observations
                         if current_observations
                         else None,
+                        group_size=current_group_size,
                     )
                 )
                 self.update_records_display()
@@ -718,7 +751,7 @@ class VideoLabelingApp:
                     end_time = self.video_position.get()
                     duration = end_time - self.behavior_start_time
                     self.behavior_records.append(
-                        BehaviourRecord(
+                        BehaviorRecord(
                             session=1,
                             role=cast(Role, current_role),
                             behaviour=self.current_behavior,
@@ -733,6 +766,7 @@ class VideoLabelingApp:
                             observations=current_observations
                             if current_observations
                             else None,
+                            group_size=current_group_size,
                         )
                     )
                     self.current_behavior = None
