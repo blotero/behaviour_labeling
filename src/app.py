@@ -15,7 +15,7 @@ from .frame_processor import (
     FrameQueueElement,
 )
 from .record import BehaviorRecord, save_as_csv
-from .types import GroupType, RecordType, Role, Sex
+from .types import GroupType, RecordType, Role, Sex, Stage
 from .utils import format_time
 
 VIDEO_WIDTH = 1080
@@ -397,6 +397,28 @@ class VideoLabelingApp:
             row=1, column=5, sticky=tk.EW, padx=(0, 10), pady=2
         )
 
+        # Stage selector - Row 1
+        self.stage_var = tk.StringVar()
+        self.stage_label = ttk.Label(
+            self.secondary_controls_frame, text="Estadío: "
+        )
+        self.stage_label.grid(row=1, column=6, sticky=tk.W, padx=(0, 5), pady=2)
+
+        self.stage_selector = ttk.Combobox(
+            self.secondary_controls_frame,
+            textvariable=self.stage_var,
+            values=[
+                "cria",
+                "adulto",
+                "juvenil",
+                "indefinido",
+            ],
+            state="readonly",
+        )
+        self.stage_selector.grid(
+            row=1, column=7, sticky=tk.EW, padx=(0, 10), pady=2
+        )
+
         # Observations text box - Row 2 (spans multiple columns)
         self.observations_label = ttk.Label(
             self.secondary_controls_frame, text="Observaciones: "
@@ -407,7 +429,7 @@ class VideoLabelingApp:
 
         self.observations_entry = ttk.Entry(self.secondary_controls_frame)
         self.observations_entry.grid(
-            row=2, column=1, columnspan=5, sticky=tk.EW, padx=(0, 10), pady=2
+            row=2, column=1, columnspan=7, sticky=tk.EW, padx=(0, 10), pady=2
         )
 
         # State feedback label - Row 3
@@ -418,7 +440,7 @@ class VideoLabelingApp:
             foreground="gray",
         )
         self.state_feedback_label.grid(
-            row=3, column=0, columnspan=6, sticky=tk.W, padx=(0, 10), pady=5
+            row=3, column=0, columnspan=8, sticky=tk.W, padx=(0, 10), pady=5
         )
 
         # Save button - Row 2
@@ -428,7 +450,7 @@ class VideoLabelingApp:
             command=self.save_behavior_records,
         )
         self.save_button.grid(
-            row=2, column=6, sticky=tk.E, padx=(10, 0), pady=2
+            row=3, column=6, sticky=tk.E, padx=(10, 0), pady=2
         )
 
         # Create a frame for records in secondary window
@@ -707,6 +729,12 @@ class VideoLabelingApp:
                 # If conversion fails, keep as None
                 pass
 
+        # Get stage value, convert to str if not empty, otherwise None
+        stage_str = self.stage_var.get()
+        current_stage = None
+        if stage_str.strip():
+            current_stage = cast(Stage, stage_str)
+
         match record_type:
             case "EVENT":
                 self.behavior_records.append(
@@ -725,6 +753,9 @@ class VideoLabelingApp:
                         if current_observations
                         else None,
                         group_size=current_group_size,
+                        stage=cast(Stage, current_stage)
+                        if current_stage
+                        else None,
                     )
                 )
                 self.update_records_display()
@@ -767,6 +798,9 @@ class VideoLabelingApp:
                             if current_observations
                             else None,
                             group_size=current_group_size,
+                            stage=cast(Stage, current_stage)
+                            if current_stage
+                            else None,
                         )
                     )
                     self.current_behavior = None
