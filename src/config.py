@@ -68,6 +68,7 @@ BEHAVIOR_DATA = {
         "Giro en ángulo agudo (cambio dirección)": "EVENT",
         "Giro 90° para cambio de dirección": "EVENT",
         "Arqueo de cuerpo para cambio de dirección": "EVENT",
+        "Desplazamiento": "STATE",
     },
     "Embarcaciones": {
         "Respiración": "EVENT",

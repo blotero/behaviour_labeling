@@ -382,7 +382,7 @@ class VideoLabelingApp:
             self.secondary_controls_frame, text="Tamaño grupal: "
         )
         self.group_size_label.grid(
-            row=1, column=4, sticky=tk.W, padx=(0, 5), pady=2
+            row=0, column=4, sticky=tk.W, padx=(0, 5), pady=2
         )
 
         self.group_size_spinner = ttk.Spinbox(
@@ -394,7 +394,7 @@ class VideoLabelingApp:
             state="normal",
         )
         self.group_size_spinner.grid(
-            row=1, column=5, sticky=tk.EW, padx=(0, 10), pady=2
+            row=0, column=5, sticky=tk.EW, padx=(0, 10), pady=2
         )
 
         # Stage selector - Row 1
@@ -402,7 +402,7 @@ class VideoLabelingApp:
         self.stage_label = ttk.Label(
             self.secondary_controls_frame, text="Estadío: "
         )
-        self.stage_label.grid(row=1, column=6, sticky=tk.W, padx=(0, 5), pady=2)
+        self.stage_label.grid(row=1, column=4, sticky=tk.W, padx=(0, 5), pady=2)
 
         self.stage_selector = ttk.Combobox(
             self.secondary_controls_frame,
@@ -416,7 +416,7 @@ class VideoLabelingApp:
             state="readonly",
         )
         self.stage_selector.grid(
-            row=1, column=7, sticky=tk.EW, padx=(0, 10), pady=2
+            row=1, column=5, sticky=tk.EW, padx=(0, 10), pady=2
         )
 
         # Observations text box - Row 2 (spans multiple columns)
