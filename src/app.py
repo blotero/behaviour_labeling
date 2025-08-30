@@ -22,6 +22,16 @@ VIDEO_WIDTH = 1080
 VIDEO_HEIGHT = 720
 
 
+def parse_var_str_as_int(var: tk.StringVar) -> int | None:
+    var_as_str = var.get()
+    if var_as_str.strip():
+        try:
+            val = int(var_as_str)
+            return val
+        except ValueError:
+            return None
+
+
 def setup_behavior_tree(
     parent: ttk.Frame,
     data: dict[str, Any],
@@ -376,7 +386,7 @@ class VideoLabelingApp:
             row=1, column=3, sticky=tk.EW, padx=(0, 10), pady=2
         )
 
-        # Group size spinner - Row 1
+        # Group size spinner
         self.group_size_var = tk.StringVar()
         self.group_size_label = ttk.Label(
             self.secondary_controls_frame, text="Tamaño grupal: "
@@ -397,12 +407,54 @@ class VideoLabelingApp:
             row=0, column=5, sticky=tk.EW, padx=(0, 10), pady=2
         )
 
-        # Stage selector - Row 1
+        # Mother calves spinner
+        self.mother_calves_var = tk.StringVar()
+        self.mother_calves_label = ttk.Label(
+            self.secondary_controls_frame, text="Madres con cría"
+        )
+        self.mother_calves_label.grid(
+            row=1, column=4, sticky=tk.W, padx=(0, 5), pady=2
+        )
+
+        self.mother_calves_spinner = ttk.Spinbox(
+            self.secondary_controls_frame,
+            textvariable=self.mother_calves_var,
+            from_=1,
+            to=100,
+            width=10,
+            state="normal",
+        )
+        self.mother_calves_spinner.grid(
+            row=1, column=5, sticky=tk.EW, padx=(0, 10), pady=2
+        )
+
+        # Calves only spinner
+        self.calves_only_var = tk.StringVar()
+        self.calves_only_label = ttk.Label(
+            self.secondary_controls_frame, text="Crías"
+        )
+        self.calves_only_label.grid(
+            row=1, column=6, sticky=tk.W, padx=(0, 5), pady=2
+        )
+
+        self.calves_only_spinner = ttk.Spinbox(
+            self.secondary_controls_frame,
+            textvariable=self.calves_only_var,
+            from_=1,
+            to=100,
+            width=10,
+            state="normal",
+        )
+        self.calves_only_spinner.grid(
+            row=1, column=7, sticky=tk.EW, padx=(0, 10), pady=2
+        )
+
+        # Stage selector
         self.stage_var = tk.StringVar()
         self.stage_label = ttk.Label(
             self.secondary_controls_frame, text="Estadío: "
         )
-        self.stage_label.grid(row=1, column=4, sticky=tk.W, padx=(0, 5), pady=2)
+        self.stage_label.grid(row=0, column=6, sticky=tk.W, padx=(0, 5), pady=2)
 
         self.stage_selector = ttk.Combobox(
             self.secondary_controls_frame,
@@ -416,7 +468,7 @@ class VideoLabelingApp:
             state="readonly",
         )
         self.stage_selector.grid(
-            row=1, column=5, sticky=tk.EW, padx=(0, 10), pady=2
+            row=0, column=7, sticky=tk.EW, padx=(0, 10), pady=2
         )
 
         # Observations text box - Row 2 (spans multiple columns)
@@ -720,14 +772,9 @@ class VideoLabelingApp:
         current_observations = self.observations_entry.get()
 
         # Get group size value, convert to int if not empty, otherwise None
-        group_size_str = self.group_size_var.get()
-        current_group_size = None
-        if group_size_str.strip():
-            try:
-                current_group_size = int(group_size_str)
-            except ValueError:
-                # If conversion fails, keep as None
-                pass
+        current_group_size = parse_var_str_as_int(self.group_size_var)
+        current_mother_and_calves = parse_var_str_as_int(self.mother_calves_var)
+        current_only_calves = parse_var_str_as_int(self.calves_only_var)
 
         # Get stage value, convert to str if not empty, otherwise None
         stage_str = self.stage_var.get()
@@ -756,6 +803,8 @@ class VideoLabelingApp:
                         stage=cast(Stage, current_stage)
                         if current_stage
                         else None,
+                        mother_and_calf=current_mother_and_calves,
+                        calves=current_only_calves,
                     )
                 )
                 self.update_records_display()

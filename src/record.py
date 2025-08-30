@@ -22,6 +22,8 @@ class BehaviorRecord:
     observations: str | None = None
     stage: Stage | None = None
     group_size: int | None = None
+    mother_and_calf: int | None = None
+    calves: int | None = None
 
     @property
     def start_time_str(self) -> str:
@@ -41,9 +43,10 @@ class BehaviorRecord:
         base_str = (
             f">> {self.start_time_str} - {self.record_type} -- "
             f"Rol: {self.role} - Comportamiento: {self.behaviour}: s - "
-            f"Tag:{self.tag} - Tipo:{self.group_type} - Sexo:{self.sex} - "
-            f"Estadio:{self.stage} - "
-            f"Tamaño grupal:{self.group_size}{observations_str}"
+            f"Tag: {self.tag} - Tipo: {self.group_type} - Sexo: {self.sex} - "
+            f"Estadio: {self.stage} - "
+            f"Tamaño grupal: {self.group_size}{observations_str} - "
+            f"Madres con cría: {self.mother_and_calf} - Crias: {self.calves}"
         )
 
         if self.record_type == "STATE" and self.end_time_str:
@@ -51,8 +54,7 @@ class BehaviorRecord:
                 f"{base_str} - Fin: {self.end_time_str} "
                 f"(Duración: {self.duration:.2f}s)"
             )
-        else:
-            return base_str
+        return base_str
 
 
 def save_as_csv(
